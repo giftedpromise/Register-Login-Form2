@@ -1,16 +1,15 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import emailImg from "../assets/email.png";
 import passwordImg from "../assets/password.png";
 
 const Login = () => {
-  // State for form fields
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
-  // State for error messages
   const [errors, setErrors] = useState({ email: "", password: "" });
+  const navigate = useNavigate();
 
-  // Handle form submission
   const handleSubmit = (e) => {
     e.preventDefault();
 
@@ -37,8 +36,26 @@ const Login = () => {
     setErrors(newErrors);
 
     if (isValid) {
-      // Submit the form (you can handle form submission here)
-      console.log("Form submitted:", { email, password });
+      axios
+        .post(
+          "http://localhost:3001/login",
+          { email, password },
+          { withCredentials: true }
+        )
+        .then((result) => {
+          if (result.data === "Success") {
+            axios
+              .get("http://localhost:3001/user", { withCredentials: true })
+              .then((response) => {
+                if (response.data.user) {
+                  navigate("/home", { state: { user: response.data.user } });
+                }
+              });
+          } else {
+            alert("Login failed");
+          }
+        })
+        .catch((err) => console.log(err));
     }
   };
 
@@ -55,7 +72,7 @@ const Login = () => {
               onChange={(e) => setEmail(e.target.value)}
               className="flex-1 px-4 py-2 border-none outline-none"
             />
-            <img src={emailImg} alt="Email-image" className="w-6 h-6 p-2" />
+            <img src={emailImg} alt="Email" className="w-6 h-6 p-2" />
           </div>
           {errors.email && (
             <p className="text-red-500 text-sm mt-1">{errors.email}</p>
@@ -68,11 +85,7 @@ const Login = () => {
               onChange={(e) => setPassword(e.target.value)}
               className="flex-1 px-4 py-2 border-none outline-none"
             />
-            <img
-              src={passwordImg}
-              alt="password-image"
-              className="w-6 h-6 p-2"
-            />
+            <img src={passwordImg} alt="Password" className="w-6 h-6 p-2" />
           </div>
           {errors.password && (
             <p className="text-red-500 text-sm mt-1">{errors.password}</p>

@@ -2,14 +2,31 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const bcrypt = require("bcrypt");
+const MongoStore = require("connect-mongo");
 const dotenv = require("dotenv");
+const session = require("express-session");
 const UserModel = require("./model/User");
 
 dotenv.config();
 const app = express();
 app.use(express.json());
 
-app.use(cors());
+// CORS options
+const corsOptions = {
+  origin: "http://localhost:5173",
+  credentials: true,
+};
+app.use(cors(corsOptions));
+
+// Session middleware
+app.use(
+  session({
+    secret: "your-secret-key",
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: false }, // Set to true if HTTPS
+  })
+);
 
 mongoose
   .connect(process.env.MONGO_URI)
@@ -33,24 +50,55 @@ app.post("/register", async (req, res) => {
     const savedUser = await newUser.save();
     res.status(201).json(savedUser);
   } catch (error) {
+    console.error("Register Error:", error);
     res.status(500).json({ error: error.message });
   }
 });
-/* mongoose.connect(
-  "mongodb+srv://giftedpromise:Promisengani1593%23@cluster0.ultm5qe.mongodb.net/crud"
-);
-const userSchema = new mongoose.Schema({
-  name: String,
-  age: Number,
-});
-const userModel = mongoose.model("emp", userSchema);
-const emp1 = new userModel({
-  name: "Promise",
-  age: 23,
-});
-emp1.save();
-app.listen(3001, () => {
-  console.log("Server is Running!!!");
+
+app.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const user = await UserModel.findOne({ email });
+    if (user) {
+      const passwordMatch = await bcrypt.compare(password, user.password);
+      if (passwordMatch) {
+        req.session.user = {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+        };
+        console.log("Login Success:", user.name);
+        res.json("Success");
+      } else {
+        res.status(401).json("Password doesn't match");
+      }
+    } else {
+      res.status(404).json("No Records found");
+    }
+  } catch (error) {
+    console.error("Login Error:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
-*/
+app.post("/logout", (req, res) => {
+  if (req.session) {
+    req.session.destroy((err) => {
+      if (err) {
+        res.status(500).json({ error: "Failed to logout" });
+      } else {
+        res.status(200).json({ message: "Logout successful" });
+      }
+    });
+  } else {
+    res.status(400).json({ error: "No session found" });
+  }
+});
+
+app.get("/user", (req, res) => {
+  if (req.session.user) {
+    res.json({ user: req.session.user });
+  } else {
+    res.status(401).json("Not authenticated");
+  }
+});
